@@ -11,30 +11,31 @@
 |
 */
 
-use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\LangController;
 use App\Http\Controllers\ArtisanController;
-use App\Http\Controllers\Admin\ProfileController;
-use App\Http\Controllers\Admin\AdminMenuController;
-use App\Http\Controllers\Admin\DashboardController;
-use App\Http\Controllers\Admin\ActivityController;
-use App\Http\Controllers\Admin\GeneralSettingController;
-use App\Http\Controllers\Admin\SettingController;
-use App\Http\Controllers\Admin\WebsiteSettingController;
-use App\Http\Controllers\Admin\EmailSettingController;
-use App\Http\Controllers\Admin\FileManagerController;
-use App\Http\Controllers\Admin\AdminController;
-use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\TodoController;
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\ProfileController;
+use App\Http\Controllers\Admin\SettingController;
+use App\Http\Controllers\Admin\ActivityController;
+use App\Http\Controllers\Admin\JsonFormController;
+use App\Http\Controllers\Admin\AdminMenuController;
+use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\FileManagerController;
 use App\Http\Controllers\Admin\CommonThingsController;
-use App\Http\Controllers\Admin\Auth\LoginController as AdminLoginController;
-use App\Http\Controllers\Admin\Auth\ForgotPasswordController as AdminForgotPasswordController;
-use App\Http\Controllers\Admin\Auth\ResetPasswordController as AdminResetPasswordController;
+use App\Http\Controllers\Admin\EmailSettingController;
+use App\Http\Controllers\Admin\GeneralSettingController;
+use App\Http\Controllers\Admin\WebsiteSettingController;
 use App\Http\Controllers\Admin\SwaggerGeneratorController;
-use App\Http\Controllers\LangController;
-
 use Spatie\Health\Http\Controllers\HealthCheckResultsController;
+use App\Http\Controllers\Admin\Auth\LoginController as AdminLoginController;
+
+use App\Http\Controllers\Admin\Auth\ResetPasswordController as AdminResetPasswordController;
+use App\Http\Controllers\Admin\Auth\ForgotPasswordController as AdminForgotPasswordController;
 
 
 
@@ -282,7 +283,8 @@ Route::group(['as' => 'admin.', 'prefix' => 'admin', 'middleware' => 'auth:admin
 });
 
 
-
+Route::get('/json-form', [JsonFormController::class, 'show'])->name('json.form.show');
+Route::post('/json-form', [JsonFormController::class, 'submit'])->name('json.form.submit');
 
 
 
