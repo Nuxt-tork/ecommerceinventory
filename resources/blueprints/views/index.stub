@@ -1,0 +1,6 @@
+@extends('admin.layouts.master')
+@section('title') {{ $page_title }} @endsection
+
+@section('container')
+{{-- ... paste your full Blade content here from generateIndexView --}}
+@endsection
