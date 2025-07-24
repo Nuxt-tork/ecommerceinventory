@@ -107,12 +107,14 @@ class JsonFormController extends Controller
 
         $data = json_decode($request->crud_json, true);
 
-        // Generate destination generate folder if not 
+        // Create generation folder
         $crudFileName = $data['crud_file_name'] ?? 'DefaultFile';
         $generationFolder = $this->generationBasePath . "/{$crudFileName}";
         if (!is_dir($generationFolder)) {
             mkdir($generationFolder, 0755, true);
         }
+
+        $result = [];
 
         // Generate Model
         $modelName = $data['model_name'] ?? null;
@@ -120,14 +122,29 @@ class JsonFormController extends Controller
             return back()->withErrors('Model name is required.');
         }
 
-        $result = $this->generateNewModel($modelName, $generationFolder, $data);
+        $result['model'] = $this->generateNewModel($modelName, $generationFolder, $data);
 
-        if ($result !== true) {
-            return back()->withErrors($result);
+        // Generate Migration
+        $migrationName = $data['model_migration_name'] ?? null;
+        if (!$migrationName) {
+            return back()->withErrors('Migration name is required.');
         }
 
-        return back()->with('success', "Model '{$modelName}' created successfully.");
+        $result['migration'] = $this->generateNewMigration($migrationName, $generationFolder, $data);
+
+        $successMessages = [];
+
+        foreach ($result as $type => $res) {
+            if ($res !== true) {
+                return back()->withErrors("Error generating {$type}: {$res}");
+            }
+
+            $successMessages[] = ucfirst($type) . ' generated successfully';
+        }
+
+        return back()->with('success', implode('<br>', $successMessages));
     }
+
 
 
      /**
@@ -213,6 +230,127 @@ class JsonFormController extends Controller
 
         return $output;
     }
+
+    private function generateNewMigration(string $migrationName, string $generationPath, array $jsonData)
+    {
+        $stubPath = resource_path("blueprints/migrations/migration.stub");
+
+        if (!file_exists($stubPath)) {
+            return "Migration stub does not exist at '{$stubPath}'.";
+        }
+
+        $stub = file_get_contents($stubPath);
+
+        $className = 'Create' . \Illuminate\Support\Str::studly($migrationName) . 'Table';
+        $tableName = $migrationName;
+
+        $schema = $this->buildMigrationSchema($jsonData['columns'] ?? []);
+
+        $stub = str_replace(
+            ['{{migrationClassName}}', '{{tableName}}', '{{schema}}'],
+            [$className, $tableName, $schema],
+            $stub
+        );
+
+        $filename = now()->format('Y_m_d_His') . "_create_{$tableName}_table.php";
+        $filepath = $generationPath . '/' . $filename;
+
+        file_put_contents($filepath, $stub);
+
+        return true;
+    }
+
+
+
+    private function buildMigrationSchema(array $columns): string
+    {
+        $lines = [];
+
+        // imageType, fileType → string or nullable string
+        foreach (['imageType', 'fileType'] as $type) {
+            foreach ($columns[$type] ?? [] as $field) {
+                $fieldName = trim(str_replace(['*', '#'], '', $field));
+                $isRequired = str_contains($field, '*');
+                $lines[] = "\$table->string('{$fieldName}')" . ($isRequired ? '' : '->nullable()') . ';';
+            }
+        }
+
+        // textType → string
+        foreach ($columns['textType'] ?? [] as $field) {
+            $fieldName = trim(str_replace(['*', '#'], '', $field));
+            $isRequired = str_contains($field, '*');
+            $lines[] = "\$table->string('{$fieldName}', 255)" . ($isRequired ? '' : '->nullable()') . ';';
+        }
+
+        // numberType → decimal or integer
+        foreach ($columns['numberType'] ?? [] as $field) {
+            $fieldName = trim(str_replace(['*', '#'], '', $field));
+            $isRequired = str_contains($field, '*');
+            $lines[] = "\$table->decimal('{$fieldName}', 10, 2)" . ($isRequired ? '' : '->nullable()') . ';';
+        }
+
+        // colorType → string (hex)
+        foreach ($columns['colorType'] ?? [] as $field) {
+            $fieldName = trim(str_replace('#', '', $field));
+            $lines[] = "\$table->string('{$fieldName}', 7)->nullable();";
+        }
+
+        // dateType → date
+        foreach ($columns['dateType'] ?? [] as $field) {
+            $fieldName = trim(str_replace('#', '', $field));
+            $lines[] = "\$table->date('{$fieldName}')->nullable();";
+        }
+
+        // timeType → time
+        foreach ($columns['timeType'] ?? [] as $field) {
+            $fieldName = trim(str_replace('#', '', $field));
+            $lines[] = "\$table->time('{$fieldName}')->nullable();";
+        }
+
+        // yearType → year (as integer)
+        foreach ($columns['yearType'] ?? [] as $field) {
+            $fieldName = trim(str_replace('#', '', $field));
+            $lines[] = "\$table->year('{$fieldName}')->nullable();";
+        }
+
+        // booleanType
+        foreach ($columns['booleanType'] ?? [] as $field) {
+            $fieldName = trim(str_replace(['*', '#'], '', $field));
+            $lines[] = "\$table->boolean('{$fieldName}')->default(false);";
+        }
+
+        // selectType → string (or enum if needed)
+        foreach ($columns['selectType'] ?? [] as $select) {
+            $name = $select['name'];
+            $lines[] = "\$table->string('{$name}')->nullable();";
+        }
+
+        // relationalType → unsignedBigInteger + foreign key
+        foreach ($columns['relationalType'] ?? [] as $relation) {
+            $foreignKey = $relation['foreign_key'] ?? null;
+            $relatedTable = $relation['related_table'] ?? null;
+
+            if ($foreignKey && $relatedTable) {
+                $lines[] = "\$table->unsignedBigInteger('{$foreignKey}')->nullable();";
+                $lines[] = "\$table->foreign('{$foreignKey}')->references('id')->on('{$relatedTable}')->onDelete('cascade');";
+            }
+        }
+
+        // textEditorType → longText
+        foreach ($columns['textEditorType'] ?? [] as $field) {
+            $fieldName = trim(str_replace('#', '', $field));
+            $lines[] = "\$table->longText('{$fieldName}')->nullable();";
+        }
+
+        // TagType → text
+        foreach ($columns['TagType'] ?? [] as $field) {
+            $fieldName = trim(str_replace('#', '', $field));
+            $lines[] = "\$table->text('{$fieldName}')->nullable();";
+        }
+
+        return implode("\n            ", $lines); // properly indented
+    }
+
 
 
 
