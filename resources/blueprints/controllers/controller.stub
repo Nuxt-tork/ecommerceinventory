@@ -1,0 +1,127 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use stdClass;
+use App\Models\{{modelName}};
+use App\Models\FileManager;
+use Illuminate\Http\Request;
+
+class {{modelName}}Controller extends Controller
+{
+    public function index()
+    {
+        $info                     = new stdClass();
+        $info->page_title         = __('admin.{{slug}}');
+        $info->title              = __('admin.{{plural}}');
+        $info->first_button_title = __('admin.add_{{slug}}');
+        $info->first_button_route = 'admin.{{route}}.create';
+        $info->route_index        = 'admin.{{route}}.index';
+        $info->description        = __('admin.these_all_are_{{plural}}');
+
+        $with_data = [];
+        $per_page = request('per_page', 20);
+
+        $data = {{modelName}}::query();
+
+        {{pagination}}
+
+        return view('admin.{{route}}.index', compact('data', 'info'));
+    }
+
+    public function create()
+    {
+        $info                          = new stdClass();
+        $info->page_title              = __('admin.{{slug}}');
+        $info->title                   = __('admin.{{plural}}');
+        $info->add_button_title        = __('admin.add_{{slug}}');
+        $info->add_button_route        = 'admin.{{route}}.create';
+        $info->route_index             = 'admin.{{route}}.index';
+        $info->form_submit_route_index = 'admin.{{route}}.store';
+        $info->description             = __('create_{{plural}}');
+
+        return view('admin.{{route}}.create', compact('info'));
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            {{validationRules}}
+        ]);
+
+        $row = new {{modelName}}();
+        {{storeAssignments}}
+
+        {{fileUploads}}
+
+        $row->save();
+
+        return redirect()->route('admin.{{route}}.index')->with('success', '{{modelName}} created successfully.');
+    }
+
+    public function show($id)
+    {
+        $info                    = new stdClass();
+        $info->page_title        = __('admin.{{slug}}');
+        $info->title             = __('admin.{{plural}}');
+        $info->add_button_title  = __('admin.add_{{slug}}');
+        $info->add_button_route  = 'admin.{{route}}.create';
+        $info->edit_button_title = __('admin.edit_{{slug}}');
+        $info->edit_button_route = 'admin.{{route}}.edit';
+        $info->route_index       = 'admin.{{route}}.index';
+        $info->description       = __('{{slug}}_showcase');
+
+        $data = {{modelName}}::find($id);
+
+        return view('admin.{{route}}.show', compact('data', 'info'));
+    }
+
+    public function edit(Request $request, $id)
+    {
+        $info = new stdClass();
+        $info->page_title = __('admin.{{slug}}');
+        $info->title = __('admin.{{plural}}');
+        $info->add_button_title = __('admin.add_{{slug}}');
+        $info->add_button_route = 'admin.{{route}}.create';
+        $info->route_index = 'admin.{{route}}.index';
+        $info->form_submit_index = 'admin.{{route}}.update';
+        $info->description = __('edit_{{slug}}');
+
+        $data = {{modelName}}::findOrFail($id);
+
+        return view('admin.{{route}}.edit', compact('data', 'info'));
+    }
+
+    public function update(Request $request, $id)
+    {
+        $validated = $request->validate([
+            {{validationRules}}
+        ]);
+
+        $row = {{modelName}}::find($id);
+        if (!$row) {
+            return back()->with('warning', 'Not Found!');
+        }
+
+        {{storeAssignments}}
+
+        {{fileUploadsUpdate}}
+
+        $row->save();
+
+        return redirect()->route('admin.{{route}}.index')->with('success', '{{modelName}} updated successfully.');
+    }
+
+    public function destroy($id)
+    {
+        $row = {{modelName}}::find($id);
+
+        if ($row) {
+            $row->delete();
+        } else {
+            return redirect()->back()->with('error', '{{modelName}} Not Found!');
+        }
+
+        return redirect()->route('admin.{{route}}.index')->with('success', '{{modelName}} deleted successfully.');
+    }
+}

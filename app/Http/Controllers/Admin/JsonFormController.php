@@ -130,6 +130,11 @@ class JsonFormController extends Controller
             return back()->withErrors('Migration name is required.');
         }
 
+        // Generate Controller
+
+        $result[$modelName . 'Controller'] = $this->generateNewController($modelName, $generationFolder, $data);
+
+
         $result['migration'] = $this->generateNewMigration($migrationName, $generationFolder, $data);
 
         $successMessages = [];
@@ -350,6 +355,158 @@ class JsonFormController extends Controller
 
         return implode("\n            ", $lines); // properly indented
     }
+
+    // Controller methods
+
+    private function generateNewController(string $modelName, string $generationPath, array $jsonData)
+    {
+        $stubPath = resource_path("blueprints/controllers/controller.stub");
+
+        if (!file_exists($stubPath)) {
+            return "Controller stub does not exist at '{$stubPath}'.";
+        }
+
+        $stub = file_get_contents($stubPath);
+
+        $routeName = \Illuminate\Support\Str::kebab($modelName);
+        $plural = \Illuminate\Support\Str::pluralStudly($modelName);
+        $slug = \Illuminate\Support\Str::snake($modelName);
+
+        $columns = $jsonData['columns'] ?? [];
+
+        $stub = str_replace([
+            '{{modelName}}',
+            '{{plural}}',
+            '{{slug}}',
+            '{{route}}',
+            '{{pagination}}',
+            '{{validationRules}}',
+            '{{storeAssignments}}',
+            '{{fileUploads}}',
+            '{{fileUploadsUpdate}}',
+        ], [
+            $modelName,
+            $plural,
+            $slug,
+            $routeName,
+            $jsonData['pagination_type'] === 'backend' ? "\$data = \$data->paginate(\$per_page);" : "\$data = \$data->get();",
+            $this->buildValidationRules($columns),
+            $this->buildAssignments($columns),
+            $this->buildFileUploadCode($columns),
+            $this->buildFileUploadCode($columns, true),
+        ], $stub);
+
+        $controllerFilename = "{$modelName}Controller.php";
+        file_put_contents($generationPath . '/' . $controllerFilename, $stub);
+
+        return true;
+    }
+
+    private function buildValidationRules(array $columns): string
+    {
+        $rules = [];
+
+        foreach ($columns as $type => $fields) {
+            if (in_array($type, ['selectType', 'relationalType'])) continue;
+
+            foreach ($fields as $field) {
+                $name = str_replace(['*', '#'], '', $field);
+                $required = str_contains($field, '*') ? 'required' : 'nullable';
+
+                if ($type === 'imageType' || $type === 'fileType') {
+                    $rules[] = "'$name' => '$required|image|mimes:jpeg,png,jpg,gif'";
+                } elseif ($type === 'numberType') {
+                    $rules[] = "'$name' => '$required|numeric'";
+                } elseif ($type === 'booleanType') {
+                    $rules[] = "'$name' => '$required|boolean'";
+                } elseif ($type === 'dateType') {
+                    $rules[] = "'$name' => '$required|date'";
+                } else {
+                    $rules[] = "'$name' => '$required|string'";
+                }
+            }
+        }
+
+        foreach ($columns['selectType'] ?? [] as $select) {
+            $required = str_contains($select['name'], '*') ? 'required' : 'nullable';
+            $rules[] = "'{$select['name']}' => '$required'";
+        }
+
+        foreach ($columns['relationalType'] ?? [] as $rel) {
+            $rules[] = "'{$rel['foreign_key']}' => 'nullable|exists:{$rel['related_table']},id'";
+        }
+
+        return implode(",\n            ", $rules);
+    }
+
+    private function buildAssignments(array $columns): string
+    {
+        $assignments = [];
+
+        foreach ($columns as $type => $fields) {
+            // Skip file/image types — handled separately
+            if (in_array($type, ['imageType', 'fileType'])) continue;
+
+            foreach ($fields as $field) {
+                // For types like selectType/relationalType which are arrays
+                if (is_array($field) && isset($field['name'])) {
+                    $name = $field['name'];
+                }
+                // For plain string field types like textType, numberType, etc.
+                elseif (is_string($field)) {
+                    $name = str_replace(['*', '#'], '', $field);
+                } else {
+                    // Skip invalid/malformed definitions
+                    continue;
+                }
+
+                $assignments[] = "\$row->{$name} = \$request->{$name};";
+            }
+        }
+
+        return implode("\n        ", $assignments);
+    }
+
+
+    private function buildFileUploadCode(array $columns, bool $isUpdate = false): string
+    {
+        $code = '';
+
+        foreach ($columns['imageType'] ?? [] as $field) {
+            $name = str_replace(['*', '#'], '', $field);
+
+            $uploadPath = 'storage/' . ($columns['modelName'] ?? 'Uploads');
+
+            $block = <<<EOT
+
+            if (\$request->hasFile('$name')) {
+                \$file_response = FileManager::saveFile(
+                    \$request->file('$name'),
+                    '$uploadPath',
+                    ['png', 'jpg', 'jpeg', 'gif']
+                );
+
+                if (isset(\$file_response['result']) && !\$file_response['result']) {
+                    return back()->with('warning', \$file_response['message']);
+                };
+    EOT;
+
+            if ($isUpdate) {
+                $block .= "\n            FileManager::deleteFile(\$row->{$name});";
+            }
+
+            $block .= "\n            \$row->{$name} = \$file_response['filename'];\n        }\n";
+
+            $code .= $block;
+        }
+
+        return trim($code);
+    }
+
+
+
+
+
 
 
 
