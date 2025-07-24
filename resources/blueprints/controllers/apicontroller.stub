@@ -1,0 +1,70 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\{{modelName}};
+use App\Models\FileManager;
+use Illuminate\Http\Request;
+
+class {{modelName}}ApiController extends Controller
+{
+    public function index()
+    {
+        $items = {{modelName}}::all();
+        return apiResponse(true, 'Fetched successfully', $items);
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            // {{validation_rules}}
+        ]);
+
+        $row = new {{modelName}};
+        // {{assignments}}
+        // {{file_uploads}}
+        $row->save();
+
+        return apiResponse(true, 'Created successfully', $row);
+    }
+
+    public function show($id)
+    {
+        $item = {{modelName}}::find($id);
+        if (!$item) {
+            return apiResponse(false, 'Not found', null, 404);
+        }
+
+        return apiResponse(true, 'Fetched successfully', $item);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $request->validate([
+            // {{validation_rules}}
+        ]);
+
+        $row = {{modelName}}::find($id);
+        if (!$row) {
+            return apiResponse(false, 'Not found', null, 404);
+        }
+
+        // {{assignments}}
+        // {{file_uploads}}
+        $row->save();
+
+        return apiResponse(true, 'Updated successfully', $row);
+    }
+
+    public function destroy($id)
+    {
+        $item = {{modelName}}::find($id);
+        if (!$item) {
+            return apiResponse(false, 'Not found', null, 404);
+        }
+
+        $item->delete();
+        return apiResponse(true, 'Deleted successfully');
+    }
+}

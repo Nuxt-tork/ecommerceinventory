@@ -129,13 +129,13 @@ class JsonFormController extends Controller
         if (!$migrationName) {
             return back()->withErrors('Migration name is required.');
         }
+        $result['migration'] = $this->generateNewMigration($migrationName, $generationFolder, $data);
 
         // Generate Controller
-
         $result[$modelName . 'Controller'] = $this->generateNewController($modelName, $generationFolder, $data);
 
-
-        $result['migration'] = $this->generateNewMigration($migrationName, $generationFolder, $data);
+        // Generate ApiController
+        $result[$modelName . 'ApiController'] = $this->generateApiController($modelName, $generationFolder, $data);
 
         $successMessages = [];
 
@@ -502,6 +502,55 @@ class JsonFormController extends Controller
 
         return trim($code);
     }
+
+    // Generate API controller
+
+    private function generateApiController(string $modelName, string $generationFolder, array $data): bool|string
+    {
+        if (empty($data['generate_api']) || !$data['generate_api']) {
+            return true; // Skip if API generation not requested
+        }
+
+        $stubPath = resource_path("blueprints/controllers/apicontroller.stub");
+
+        if (!file_exists($stubPath)) {
+            return "API controller stub not found at '{$stubPath}'.";
+        }
+
+        $controllerName = "{$modelName}ApiController";
+        $controllerPath = $generationFolder . "/{$controllerName}.php";
+
+        if (file_exists($controllerPath)) {
+            return "API Controller already exists.";
+        }
+
+        $stub = file_get_contents($stubPath);
+
+        // Replace class/model name and resource name
+        $stub = str_replace('{{modelName}}', $modelName, $stub);
+        $stub = str_replace('{{resource}}', \Illuminate\Support\Str::snake(\Illuminate\Support\Str::plural($modelName)), $stub);
+
+        // Insert validation rules
+        $rules = $this->buildValidationRules($data['columns'] ?? []);
+        $stub = str_replace('// {{validation_rules}}', $rules, $stub);
+
+        // Insert field assignments
+        $assignments = $this->buildAssignments($data['columns'] ?? []);
+        $stub = str_replace('// {{assignments}}', $assignments, $stub);
+
+        // Insert file upload handling
+        $fileUploads = $this->buildFileUploadCode(array_merge($data['columns'], ['modelName' => $modelName]), false);
+        $stub = str_replace('// {{file_uploads}}', $fileUploads, $stub);
+
+        file_put_contents($controllerPath, $stub);
+
+        return true;
+    }
+
+
+   
+
+
 
 
 
