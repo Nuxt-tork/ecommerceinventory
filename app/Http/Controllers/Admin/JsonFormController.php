@@ -15,7 +15,6 @@ class JsonFormController extends Controller
         // Base folder for all generated files
         $this->generationBasePath = app_path('Generated');
 
-        
     }
 
 
@@ -140,11 +139,6 @@ class JsonFormController extends Controller
         if (!preg_match('/^[A-Z][A-Za-z0-9_]*$/', $modelName)) {
             return "Invalid model name '{$modelName}'. Use PascalCase format.";
         }
-        // $generationFolder = $generationPath . "/{$modelName}";
-        
-        // if (!is_dir($generationFolder)) {
-        //     mkdir($generationFolder, 0755, true);
-        // }
 
         $stubPath = resource_path("blueprints/models/model.stub");
 
@@ -155,12 +149,9 @@ class JsonFormController extends Controller
         // Load stub and replace placeholder
         $stub = file_get_contents($stubPath);
         $stub = str_replace('{{ClassName}}', $modelName, $stub);
-// dd($data['columns']['relationalType']);
+
             // Generate relationship methods (if any)
             $relationships = $this->buildRelationships($jsonData['columns']['relationalType'] ?? [], $modelName);
-
-            // dd($relationships);
-
             $stub = str_replace('{{relationships}}', $relationships, $stub);
 
         // Save the new model file in generation folder
