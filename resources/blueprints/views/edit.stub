@@ -1,18 +1,55 @@
-@extends('layouts.admin')
+@extends('admin.layouts.master')
 
-@section('content')
-<h1>{{ ucfirst('{{action}} {{slug}}') }}</h1>
-<form action="{{ route('admin.{{route}}.{{form_action}}', {{form_id}}) }}" method="POST" enctype="multipart/form-data">
-    @csrf
-    @if($form_method) @method('{{form_method}}') @endif
+@section('title')
+    {{ '{{ $info->page_title }}' }}
+@endsection
 
-    {{#fields}}
-    <div class="form-group">
-        <label for="{{name}}">{{ ucfirst(name) }}</label>
-        {{{inputHtml}}}
+@section('container')
+<div class="row">
+    <div class="col-lg-12">
+        <div class="myy-card">
+            <div class="myy-card__wrapper">
+
+                <div class="myy-table__header d-flex justify-content-between">
+                    <div class="myy-table__title">
+                        <h5>{{ '{{ $info->title }}' }}</h5>
+                    </div>
+                    <div class="float-right">
+                        <a href="{{ '{{ route($info->index_route) }}' }}" class="btn btn-primary">
+                            <i class="flaticon2-add"></i>
+                            {{ '{{ $info->first_button_title }}' }}
+                        </a>
+                    </div>
+                </div>
+
+                <div class="myy-card__body">
+                    <form action="{{ '{{ route($info->form_route, $data->id) }}' }}" method="post" enctype="multipart/form-data">
+                        @csrf
+                        @method('PUT')
+                        <div class="row g-4">
+                            {{ formInputs }}
+                        </div>
+
+                        <div class="row">
+                            <div class="col-lg-10">
+                                <button type="submit" class="btn btn-primary mt-4">{{ '{{ __("button.update") }}' }}</button>
+                                <button type="reset" class="btn btn-danger mt-4">{{ '{{ __("button.reset") }}' }}</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+            </div>
+        </div>
     </div>
-    {{/fields}}
+</div>
+@endsection
 
-    <button type="submit" class="btn btn-success">{{ ucfirst('{{action}}') }}</button>
-</form>
+@section('css')
+    @parent
+@endsection
+
+@section('js')
+    @parent
+
 @endsection

@@ -146,6 +146,11 @@ class JsonFormController extends Controller
 
         $result[$modelName . 'create.blade.php'] = $this->generateCreateView($data['columns'], $modelName, $generationFolder);
 
+        // generate edit.blade.php
+
+        $result[$modelName . 'edit.blade.php'] = $this->generateEditView($modelName, $generationFolder, $data);
+
+
 
         $successMessages = [];
 
@@ -892,200 +897,256 @@ class JsonFormController extends Controller
 
     // Generate Create.blade.php
 
-    private function generateCreateView(array $columns, string $modelName, string $outputPath): bool|string
+    protected function generateCreateView(array $columns, string $modelName, string $generationFolder): bool|string
     {
-        $resource = \Illuminate\Support\Str::of($modelName)->plural()->snake();
-        $routePrefix = "admin.$resource";
-
-        $inputs = '';
-
-        // Helper to generate label with required star if needed
-        $labelHtml = fn($field, $label, $required = false) => "<label class=\"form-label\" for=\"$field\">{{ __('admin.$label') }}" . ($required ? '<span>&#x002A;</span>' : '') . "</label>";
-
-        foreach ($columns['fields'] ?? [] as $field => $type) {
-            // Detect if $ exists in original field key
-            $hasDollar = str_contains($field, '$');
-            // Clean the field name for id/name/label (remove $, *, #)
-            $fieldClean = str_replace(['$', '*', '#'], '', $field);
-            // Check if required based on *
-            $required = str_contains($field, '*');
-
-            // Wrap inputs in col-md-6 if $ exists, else col-md-12 (adjust as you prefer)
-            $colClass = $hasDollar ? 'col-md-6' : 'col-md-12';
-
-            switch (true) {
-                case in_array($fieldClean, $columns['imageType'] ?? []):
-                    $inputs .= <<<HTML
-                                    <div class="$colClass">
-                                        <div class="form-group">
-                                            {$labelHtml($fieldClean,$fieldClean,$required)}
-                                            <div class="admin__thumb-upload">
-                                                <div class="admin__thumb-edit">
-                                                    <input type="file" class="@error('$fieldClean') is-invalid @enderror" id="$fieldClean" name="$fieldClean" onchange="imagePreview(this,'image_preview_$fieldClean');" accept=".png,.jpg,.jpeg" />
-                                                    <label for="$fieldClean"></label>
-                                                </div>
-                                                <div class="admin__thumb-preview">
-                                                    <div id="image_preview_$fieldClean" class="admin__thumb-profilepreview" style="background-image: url({{ asset(avatarUrl()) }});"></div>
-                                                </div>
-                                                @error('$fieldClean')
-                                                    <div class="invalid-feedback">{{ \$message }}</div>
-                                                @enderror
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    HTML;
-                                                    break;
-
-                                                case in_array($fieldClean, $columns['selectType'] ?? []):
-                                                    $modelClass = $this->inferModelFromField($fieldClean);
-                                                    $requiredAttr = $required ? 'required' : '';
-                                                    $inputs .= <<<HTML
-                                    <div class="$colClass">
-                                        <div class="form-group">
-                                            {$labelHtml($fieldClean,$fieldClean,$required)}
-                                            <select class="form-select search-select @error('$fieldClean') is-invalid @enderror" data-live-search="true" id="$fieldClean" name="$fieldClean" $requiredAttr>
-                                                <option value="">{{ __('default.choose') }}</option>
-                                                @foreach (activeModelData('$modelClass') as \$row)
-                                                    <option value="{{ \$row->id }}" @if(old('$fieldClean') == \$row->id) selected @endif>{{ \$row->title }}</option>
-                                                @endforeach
-                                            </select>
-                                            @error('$fieldClean')
-                                                <div class="invalid-feedback">{{ \$message }}</div>
-                                            @enderror
-                                        </div>
-                                    </div>
-
-                                    HTML;
-                                                    break;
-
-                                                case in_array($fieldClean, $columns['booleanType'] ?? []):
-                                                    $inputs .= <<<HTML
-                                    <div class="$colClass">
-                                        <div class="form-group">
-                                            {$labelHtml($fieldClean,$fieldClean,$required)}
-                                            <div class="form-check form-switch form-switch-md">
-                                                <input type="checkbox" class="form-check-input @error('$fieldClean') is-invalid @enderror" id="$fieldClean" name="$fieldClean" value="1" @if(old('$fieldClean')) checked @endif>
-                                            </div>
-                                            @error('$fieldClean')
-                                                <div class="invalid-feedback">{{ \$message }}</div>
-                                            @enderror
-                                        </div>
-                                    </div>
-
-                                    HTML;
-                                                    break;
-
-                                                case $fieldClean === 'body':
-                                                    $inputs .= <<<HTML
-                                    <div class="$colClass">
-                                        <div class="form-group">
-                                            {$labelHtml($fieldClean,$fieldClean,$required)}
-                                            {!! renderCKEditorHtml('$fieldClean', 0, old('$fieldClean')) !!}
-                                            @error('$fieldClean')
-                                                <div class="invalid-feedback">{{ \$message }}</div>
-                                            @enderror
-                                        </div>
-                                    </div>
-
-                                    HTML;
-                                                    break;
-
-                                                case in_array($fieldClean, $columns['tagsType'] ?? []):
-                                                    $inputs .= <<<HTML
-                                    <div class="$colClass">
-                                        <div class="form-group">
-                                            {$labelHtml($fieldClean,$fieldClean,$required)}
-                                            <input type="text" value="{{ old('$fieldClean') }}" class="form-control @error('$fieldClean') is-invalid @enderror" id="$fieldClean" name="$fieldClean" placeholder="{{ __('admin.enter_tags_comma_separated') }}">
-                                            @error('$fieldClean')
-                                                <div class="invalid-feedback">{{ \$message }}</div>
-                                            @enderror
-                                        </div>
-                                    </div>
-
-                                    HTML;
-                                                    break;
-
-                                                case in_array($type, ['int', 'integer', 'float', 'double', 'number', 'decimal']):
-                                                    $requiredAttr = $required ? 'required' : '';
-                                                    $inputs .= <<<HTML
-                                    <div class="$colClass">
-                                        <div class="form-group">
-                                            {$labelHtml($fieldClean,$fieldClean,$required)}
-                                            <input type="number" value="{{ old('$fieldClean') }}" class="form-control @error('$fieldClean') is-invalid @enderror" id="$fieldClean" name="$fieldClean" placeholder="{{ __('admin.enter') }} {{ __('admin.$fieldClean') }}" $requiredAttr>
-                                            @error('$fieldClean')
-                                                <div class="invalid-feedback">{{ \$message }}</div>
-                                            @enderror
-                                        </div>
-                                    </div>
-
-                                    HTML;
-                                                    break;
-
-                                                case in_array($type, ['text', 'textarea']):
-                                                    $inputs .= <<<HTML
-                                    <div class="$colClass">
-                                        <div class="form-group">
-                                            {$labelHtml($fieldClean,$fieldClean,$required)}
-                                            <textarea class="form-control @error('$fieldClean') is-invalid @enderror" id="$fieldClean" name="$fieldClean" rows="4" placeholder="{{ __('admin.enter') }} {{ __('admin.$fieldClean') }}">{{ old('$fieldClean') }}</textarea>
-                                            @error('$fieldClean')
-                                                <div class="invalid-feedback">{{ \$message }}</div>
-                                            @enderror
-                                        </div>
-                                    </div>
-
-                                    HTML;
-                                                    break;
-
-                                                default:
-                                                    $requiredAttr = $required ? 'required' : '';
-                                                    $inputs .= <<<HTML
-                                    <div class="$colClass">
-                                        <div class="form-group">
-                                            {$labelHtml($fieldClean,$fieldClean,$required)}
-                                            <input type="text" value="{{ old('$fieldClean') }}" class="form-control @error('$fieldClean') is-invalid @enderror" id="$fieldClean" name="$fieldClean" placeholder="{{ __('admin.enter') }} {{ __('admin.$fieldClean') }}" $requiredAttr>
-                                            @error('$fieldClean')
-                                                <div class="invalid-feedback">{{ \$message }}</div>
-                                            @enderror
-                                        </div>
-                                    </div>
-
-                                    HTML;
-                    break;
-            }
-        }
-
-        // Use the updated stub path as you requested
-        $stubPath = resource_path('blueprints/views/create.stub');
+        $stubPath = resource_path("blueprints/views/create.stub");
         if (!file_exists($stubPath)) {
-            return "Stub file not found: $stubPath";
+            return "Stub file not found: {$stubPath}";
         }
 
+        // Generate form inputs from the columns
+        $formInputs = $this->generateFormInputsFromColumns($columns);
+
+        // Load the stub and replace placeholders
         $stub = file_get_contents($stubPath);
 
-        // Replace placeholders in stub
-        $stub = str_replace('{{inputs}}', $inputs, $stub);
-        $stub = str_replace('{{routePrefix}}', $routePrefix, $stub);
+        $replaced = str_replace(
+            ['{{ modelName }}', '{{ routeName }}', '{{ formInputs }}'],
+            [$modelName, \Str::kebab($modelName), $formInputs],
+            $stub
+        );
 
-        // Write to blade file
-        $viewPath = rtrim($outputPath, '/') . "/{$resource}/create.blade.php";
-        if (!is_dir(dirname($viewPath))) {
-            mkdir(dirname($viewPath), 0755, true);
-        }
-        file_put_contents($viewPath, $stub);
-
-        return true;
+        // Save the final blade view
+        $destination = "{$generationFolder}/create.blade.php";
+        return file_put_contents($destination, $replaced) !== false ?: "Failed to write create view file.";
     }
 
-    private function inferModelFromField(string $field): string
+    public function generateEditView($modelName, $generationFolder, $data)
     {
-        // Remove '_id' suffix
-        $base = \Illuminate\Support\Str::of($field)->replace('_id', '');
+        $columns = $data['columns'] ?? [];
 
-        // Singularize and convert to StudlyCase
-        $modelName = $base->singular()->studly();
+        $stubPath = resource_path("blueprints/views/edit.stub");
+        $stub = file_get_contents($stubPath);
 
-        // Return full model namespace (adjust if your models are in a different namespace)
-        return "App\\Models\\$modelName";
+        $formFields = $this->generateFormInputsFromColumns($columns, 'edit');
+
+        $replaced = str_replace(
+            ['{{ modelName }}', '{{ routeName }}', '{{ formInputs }}'],
+            [$modelName, Str::kebab($modelName), $formFields],
+            $stub
+        );
+
+        $destination = "{$generationFolder}/edit.blade.php";
+
+        return file_put_contents($destination, $replaced) !== false
+            ? 'Generated successfully'
+            : 'Failed to write edit view file.';
     }
+
+
+    
+
+
+    protected function generateFormInputsFromColumns(array $columns, string $mode = 'create'): string
+    {
+        $html = '';
+
+        foreach ($columns as $type => $items) {
+            foreach ($items as $key => $item) {
+                $fieldName = '';
+                $required = false;
+                $showInForm = false;
+
+                if (in_array($type, ['selectType', 'relationalType'])) {
+                    $rawName = $item['name'] ?? $item['foreign_key'] ?? null;
+                    $required = strpos($rawName, '*') !== false;
+                    $showInForm = strpos($rawName, '$') !== false;
+                    $fieldName = str_replace(['*', '#', '$'], '', $rawName);
+                } else {
+                    $rawName = $item;
+                    $fieldName = str_replace(['*', '#', '$'], '', $item);
+                    $required = strpos($rawName, '*') !== false;
+                    $showInForm = strpos($rawName, '$') !== false;
+                }
+
+                if (!$showInForm || !$fieldName) continue;
+
+                $label = ucwords(str_replace('_', ' ', $fieldName));
+                $requiredStar = $required ? ' <span>*</span>' : '';
+                $requiredAttr = $required ? 'required' : '';
+                $errorBlade = "@error('{$fieldName}')<div class=\"invalid-feedback\">{{ \$message }}</div>@enderror";
+
+                $value = $mode === 'edit'
+                    ? "{{ old('{$fieldName}', \$data->{$fieldName} ?? '') }}"
+                    : "{{ old('{$fieldName}') }}";
+
+                switch ($type) {
+                    case 'textType':
+                    case 'yearType':
+                        $html .= <<<HTML
+                                            <div class="col-md-6">
+                                                <div class="form-group">
+                                                    <label class="form-label" for="{$fieldName}">{$label}{$requiredStar}</label>
+                                                    <input type="text" id="{$fieldName}" name="{$fieldName}" value="{$value}" class="form-control @error('{$fieldName}') is-invalid @enderror" {$requiredAttr}>
+                                                    {$errorBlade}
+                                                </div>
+                                            </div>
+
+                                            HTML;
+                                                                    break;
+
+                                                                case 'numberType':
+                                                                    $html .= <<<HTML
+                                            <div class="col-md-6">
+                                                <div class="form-group">
+                                                    <label class="form-label" for="{$fieldName}">{$label}{$requiredStar}</label>
+                                                    <input type="number" id="{$fieldName}" name="{$fieldName}" value="{$value}" class="form-control @error('{$fieldName}') is-invalid @enderror" {$requiredAttr}>
+                                                    {$errorBlade}
+                                                </div>
+                                            </div>
+
+                                            HTML;
+                                                                    break;
+
+                                                                case 'booleanType':
+                                                                    $html .= <<<HTML
+                                            <div class="col-md-6">
+                                                <div class="form-group form-check">
+                                                    <input type="checkbox" class="form-check-input @error('{$fieldName}') is-invalid @enderror" id="{$fieldName}" name="{$fieldName}" value="1" {{ old('{$fieldName}', \$data->{$fieldName} ?? false) ? 'checked' : '' }}>
+                                                    <label class="form-check-label" for="{$fieldName}">{$label}{$requiredStar}</label>
+                                                    {$errorBlade}
+                                                </div>
+                                            </div>
+
+                                            HTML;
+                                                                    break;
+
+                                                                case 'colorType':
+                                                                    $html .= <<<HTML
+                                            <div class="col-md-6">
+                                                <div class="form-group">
+                                                    <label class="form-label" for="{$fieldName}">{$label}{$requiredStar}</label>
+                                                    <input type="color" class="form-control form-control-color @error('{$fieldName}') is-invalid @enderror" id="{$fieldName}" name="{$fieldName}" value="{$value}">
+                                                    {$errorBlade}
+                                                </div>
+                                            </div>
+
+                                            HTML;
+                                                                    break;
+
+                                                                case 'dateType':
+                                                                    $html .= <<<HTML
+                                            <div class="col-md-6">
+                                                <div class="form-group">
+                                                    <label class="form-label" for="{$fieldName}">{$label}{$requiredStar}</label>
+                                                    <input type="date" id="{$fieldName}" name="{$fieldName}" value="{$value}" class="form-control @error('{$fieldName}') is-invalid @enderror" {$requiredAttr}>
+                                                    {$errorBlade}
+                                                </div>
+                                            </div>
+
+                                            HTML;
+                                                                    break;
+
+                                                                case 'timeType':
+                                                                    $html .= <<<HTML
+                                            <div class="col-md-6">
+                                                <div class="form-group">
+                                                    <label class="form-label" for="{$fieldName}">{$label}{$requiredStar}</label>
+                                                    <input type="time" id="{$fieldName}" name="{$fieldName}" value="{$value}" class="form-control @error('{$fieldName}') is-invalid @enderror" {$requiredAttr}>
+                                                    {$errorBlade}
+                                                </div>
+                                            </div>
+
+                                            HTML;
+                                                                    break;
+
+                                                                case 'imageType':
+                                                                case 'fileType':
+                                                                    $accept = $type === 'imageType' ? 'accept="image/*"' : '';
+                                                                    $previewUrl = "{{ asset(\$data->{$fieldName} ?? avatarUrl()) }}";
+
+                                                                    $html .= <<<HTML
+                                            <div class="col-md-6">
+                                                <div class="form-group">
+                                                    <label class="form-label" for="{$fieldName}">{$label}{$requiredStar}</label>
+                                                    <div class="admin__thumb-upload">
+                                                        <div class="admin__thumb-edit">
+                                                            <input type="file" class="@error('{$fieldName}') is-invalid @enderror" id="{$fieldName}" name="{$fieldName}" {$accept}>
+                                                            <label for="{$fieldName}"></label>
+                                                        </div>
+                                                        <div class="admin__thumb-preview">
+                                                            <div id="image_preview_{$fieldName}" class="admin__thumb-profilepreview" style="background-image: url({$previewUrl});"></div>
+                                                        </div>
+                                                    </div>
+                                                    {$errorBlade}
+                                                </div>
+                                            </div>
+
+                                            HTML;
+                                                                    break;
+
+                                                                case 'textEditorType':
+                                                                    $html .= <<<HTML
+                                            <div class="col-md-12">
+                                                <div class="form-group">
+                                                    <label class="form-label" for="{$fieldName}">{$label}{$requiredStar}</label>
+                                                    {!! renderCKEditorHtml('{$fieldName}', 0, old('{$fieldName}', \$data->{$fieldName} ?? '')) !!}
+                                                    {$errorBlade}
+                                                </div>
+                                            </div>
+
+                                            HTML;
+                                                                    break;
+
+                                                                case 'selectType':
+                                                                    $optionsHtml = "<option value=\"\">--Choose--</option>\n";
+                                                                    foreach ($item['option_values'] as $i => $valueOpt) {
+                                                                        $labelOpt = $item['option_labels'][$i];
+                                                                        $optionsHtml .= "<option value=\"{$valueOpt}\" {{ old('{$fieldName}', \$data->{$fieldName} ?? '') == '{$valueOpt}' ? 'selected' : '' }}>{$labelOpt}</option>\n";
+                                                                    }
+
+                                                                    $html .= <<<HTML
+                                            <div class="col-md-6">
+                                                <div class="form-group">
+                                                    <label class="form-label" for="{$fieldName}">{$label}{$requiredStar}</label>
+                                                    <select class="form-select @error('{$fieldName}') is-invalid @enderror" id="{$fieldName}" name="{$fieldName}" {$requiredAttr}>
+                                                        {$optionsHtml}
+                                                    </select>
+                                                    {$errorBlade}
+                                                </div>
+                                            </div>
+
+                                            HTML;
+                                                                    break;
+
+                                                                case 'relationalType':
+                                                                    if ($item['key'] === 'belongsTo') {
+                                                                        $relatedModel = $item['related_model'];
+                                                                        $relatedField = $item['screen_column_of_related_table'];
+
+                                                                        $html .= <<<HTML
+                                            <div class="col-md-6">
+                                                <div class="form-group">
+                                                    <label class="form-label" for="{$fieldName}">{$label}{$requiredStar}</label>
+                                                    <select class="form-select search-select @error('{$fieldName}') is-invalid @enderror" id="{$fieldName}" name="{$fieldName}" {$requiredAttr}>
+                                                        <option value="">--Choose--</option>
+                                                        @foreach (activeModelData(App\Models\{$relatedModel}::class) as \$row)
+                                                            <option value="{{ \$row->id }}" {{ old('{$fieldName}', \$data->{$fieldName} ?? '') == \$row->id ? 'selected' : '' }}>{{ \$row->{$relatedField} }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                    {$errorBlade}
+                                                </div>
+                                            </div>
+
+                                            HTML;
+                                                                    }
+                                                                    break;
+                                                            }
+                                                        }
+                                                    }
+
+                                                    return $html;
+    }
+
+  
 }
