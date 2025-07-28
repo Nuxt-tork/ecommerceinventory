@@ -217,7 +217,7 @@ Route::group(['as' => 'admin.', 'prefix' => 'admin', 'middleware' => 'auth:admin
     Route::controller(ActivityController::class)->group(function () {
         Route::get('/all-activities','index')->name('all-activities');
     });
-
+Route::get('/crud-generator', [JsonFormController::class, 'showCrudGenerator'])->name('crud.generator.show');
     
     
     //todo
@@ -285,6 +285,7 @@ Route::group(['as' => 'admin.', 'prefix' => 'admin', 'middleware' => 'auth:admin
 
 Route::get('/json-form', [JsonFormController::class, 'show'])->name('json.form.show');
 Route::post('/json-form', [JsonFormController::class, 'submit'])->name('json.form.submit');
+
 
 
 

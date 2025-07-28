@@ -137,7 +137,7 @@
                         data-bs-toggle="dropdown" aria-expanded="false">
                         <div class="profile__info">
                             <div class="profile__avatar">
-                                @if (Auth::user()->avatar)
+                                @if (Auth::user()->avatar != null)
                                     <img src="{{ asset(Auth::user()->avatar) }}" alt="{{ Auth::user()->name }}" />
                                 @else
                                     <img src="{{ asset('assets/images/author/author.png') }}"
@@ -151,6 +151,8 @@
                             </div>
                             <i class="lni lni-chevron-down"></i>
                         </div>
+
+                        {{-- @dd(Auth::user()) --}}
 
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profile">
